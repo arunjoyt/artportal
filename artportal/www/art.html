@@ -1,0 +1,82 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Art Gallery{% endblock %}
+
+{% block page_content %}
+<h1>Art Gallery</h1>
+
+<form id="upload-form" enctype="multipart/form-data">
+  <input type="file" id="image" name="image" required>
+  <input type="text" id="artist" name="artist" placeholder="Artist Name" required>
+  <button type="submit">Upload</button>
+</form>
+
+<div id="image-grid" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px;"></div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("upload-form");
+  const grid = document.getElementById("image-grid");
+
+  function loadImages() {
+    frappe.call({
+      method: "artportal.www.art.get_images",
+      callback: function (r) {
+        grid.innerHTML = "";
+        r.message.forEach(doc => {
+          const card = document.createElement("div");
+          card.innerHTML = `
+            <div style="border: 1px solid #ccc; padding: 10px;">
+              <img src="${doc.image}" style="width: 150px; height: 150px; object-fit: cover;" />
+              <p>${doc.artist}</p>
+              <button data-name="${doc.name}" class="delete-btn">Delete</button>
+            </div>`;
+          grid.appendChild(card);
+        });
+
+        document.querySelectorAll(".delete-btn").forEach(btn => {
+          btn.onclick = () => {
+            frappe.call({
+              method: "artportal.www.art.delete_image",
+              args: { name: btn.dataset.name },
+              callback: loadImages
+            });
+          };
+        });
+      }
+    });
+  }
+
+  form.onsubmit = function (e) {
+    e.preventDefault();
+    const image = document.getElementById("image").files[0];
+    const artist = document.getElementById("artist").value;
+
+    if (!image || !artist) {
+      alert("Both fields are required");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function () {
+      const base64 = reader.result.split(",")[1]; // Remove prefix
+      frappe.call({
+        method: "artportal.www.art.upload_image",
+        args: {
+          image_data: base64,
+          filename: image.name,
+          artist: artist
+        },
+        callback: function () {
+          form.reset();
+          loadImages();
+        }
+      });
+    };
+    reader.readAsDataURL(image);
+  };
+
+  loadImages();
+});
+</script>
+{% endblock %}
