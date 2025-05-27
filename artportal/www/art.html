@@ -5,11 +5,13 @@
 {% block page_content %}
 <h1>Art Gallery</h1>
 
+{% if frappe.session.user != "Guest" %}
 <form id="upload-form" enctype="multipart/form-data">
   <input type="file" id="image" name="image" required>
   <input type="text" id="artist" name="artist" placeholder="Artist Name" required>
   <button type="submit">Upload</button>
 </form>
+{% endif %}
 
 <div id="image-grid" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px;"></div>
 
@@ -29,7 +31,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <div style="border: 1px solid #ccc; padding: 10px;">
               <img src="${doc.image}" style="width: 150px; height: 150px; object-fit: cover;" />
               <p>${doc.artist}</p>
-              <button data-name="${doc.name}" class="delete-btn">Delete</button>
+              ${frappe.session.user !== "Guest" ? `<button data-name="${doc.name}" class="delete-btn">Delete</button>` : ""}
             </div>`;
           grid.appendChild(card);
         });
@@ -47,34 +49,36 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  form.onsubmit = function (e) {
-    e.preventDefault();
-    const image = document.getElementById("image").files[0];
-    const artist = document.getElementById("artist").value;
+  if (form) {
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      const image = document.getElementById("image").files[0];
+      const artist = document.getElementById("artist").value;
 
-    if (!image || !artist) {
-      alert("Both fields are required");
-      return;
-    }
+      if (!image || !artist) {
+        alert("Both fields are required");
+        return;
+      }
 
-    const reader = new FileReader();
-    reader.onload = function () {
-      const base64 = reader.result.split(",")[1]; // Remove prefix
-      frappe.call({
-        method: "artportal.www.art.upload_image",
-        args: {
-          image_data: base64,
-          filename: image.name,
-          artist: artist
-        },
-        callback: function () {
-          form.reset();
-          loadImages();
-        }
-      });
+      const reader = new FileReader();
+      reader.onload = function () {
+        const base64 = reader.result.split(",")[1]; // Remove prefix
+        frappe.call({
+          method: "artportal.www.art.upload_image",
+          args: {
+            image_data: base64,
+            filename: image.name,
+            artist: artist
+          },
+          callback: function () {
+            form.reset();
+            loadImages();
+          }
+        });
+      };
+      reader.readAsDataURL(image);
     };
-    reader.readAsDataURL(image);
-  };
+  }
 
   loadImages();
 });
